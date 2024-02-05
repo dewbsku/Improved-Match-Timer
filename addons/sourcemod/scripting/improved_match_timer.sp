@@ -33,7 +33,7 @@ public Plugin myinfo =
 	name		= "Improved Match Timer",
 	author		= "Dooby Skoo",
 	description = "TF2 round win limit gets reduced after the map timer runs out on 5CP.",
-	version		= "1.2.1",
+	version		= "1.3.0",
 	url			= "https://github.com/dewbsku"
 };
 
@@ -51,12 +51,26 @@ public void OnPluginStart()
 	mp_roundtime.AddChangeHook(OnChangeRoundTime);
 	round_time_override.AddChangeHook(OnChangeRoundTime);
 	AddCommandListener(OnExec, "exec");
+	AddCommandListener(OnTimeLeft, "timeleft");
 }
 
 public Action OnExec(int client, const char[] command, int argc)
 {
 	winlimit_original  = -1;
 	timelimit_original = -1;
+	return Plugin_Continue;
+}
+
+public Action OnTimeLeft(int client, const char[] _commands, int _argc)
+{
+	if (timer2 == INVALID_HANDLE)
+	{
+		return Plugin_Continue;
+	}
+	int timeleft;
+	GetMapTimeLeft(timeleft);
+	DisplayClockInfoPlayer(timeleft, client);
+	return Plugin_Handled;
 }
 
 public void OnMapStart()
@@ -129,14 +143,15 @@ public Action WaitTime(Handle timer)
 	doOnRestart = true;
 	timer2		= CreateTimer(0.5, CheckRoundTime, _, TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
 	timer1		= INVALID_HANDLE;
+	return Plugin_Continue;
 }
 
 public Action CheckRoundTime(Handle timer)
 {
 	int timeleft;
 	GetMapTimeLeft(timeleft);
-	if (timeleft >= 300 && timeleft % 300 == 0 && (timeleft != lastTimeReported) && sm_improvedtimers_chat.BoolValue) DisplayClockInfo(timeleft);
-	if (timeleft < 300 && timeleft % 60 == 0 && (timeleft != lastTimeReported) && sm_improvedtimers_chat.BoolValue) DisplayClockInfo(timeleft);
+	if (timeleft >= 300 && timeleft % 300 == 0 && (timeleft != lastTimeReported) && sm_improvedtimers_chat.BoolValue) DisplayClockInfoAll(timeleft);
+	if (timeleft < 300 && timeleft % 60 == 0 && (timeleft != lastTimeReported) && sm_improvedtimers_chat.BoolValue) DisplayClockInfoAll(timeleft);
 	lastTimeReported = timeleft;
 	if (timeleft <= 1)
 	{
@@ -186,7 +201,7 @@ bool IsValidClient(int client)
 	return (client > 0 && client <= MaxClients && IsClientInGame(client));
 }
 
-public void DisplayClockInfo(int timeleft)
+public void DisplayClockInfoAll(int timeleft)
 {
 	int minutes, seconds;
 	minutes = timeleft / 60;
@@ -201,6 +216,24 @@ public void DisplayClockInfo(int timeleft)
 		   (minutes != 0 && seconds != 0) ? " and" : "",
 		   (seconds != 0) ? msg2 : "");
 	PrintToChatAll(message);
+}
+
+public void DisplayClockInfoPlayer(int timeleft, int client)
+{
+	if (!IsValidClient(client)) return;
+	int minutes, seconds;
+	minutes = timeleft / 60;
+	seconds = timeleft % 60;
+	char message[64];
+	char msg1[16];
+	char msg2[16];
+	Format(msg1, sizeof(msg1), " %d minute%s", minutes, (minutes != 1) ? "s" : "");
+	Format(msg2, sizeof(msg2), " %d second%s", seconds, (seconds != 1) ? "s" : "");
+	Format(message, sizeof(message), "Round win limit will be reduced in%s%s%s.",
+		   (minutes != 0) ? msg1 : "",
+		   (minutes != 0 && seconds != 0) ? " and" : "",
+		   (seconds != 0) ? msg2 : "");
+	PrintToChat(client, message);
 }
 
 public void SafelyKillTimer(Handle timer)
